@@ -1,6 +1,6 @@
 <?php
 
-error_reporting(0);
+error_reporting(E_ALL);
 
 require dirname(__FILE__).'/../include/constants.php';
 require dirname(__FILE__).'/exceptions/ExceptionLoader.php';
@@ -18,8 +18,8 @@ class XFrames extends Smarty {
 	
 	protected $mysql;
 	protected $config;
-	protected $navigation;
 	
+	public $Navigation;	
 	public $Theme;
 	
 	/**
@@ -60,7 +60,6 @@ class XFrames extends Smarty {
 				$this->config['MySQL']['username'],
 				$this->config['MySQL']['password'],
 				$this->config['MySQL']['database'],
-				$this->config['MySQL']['prefix'],
 				$this->config['MySQL']['port']
 			);
 			if($this->mysql->connect_error)
@@ -113,14 +112,15 @@ class XFrames extends Smarty {
 	
 	private function loadNavigation()
 	{
-	    $this->navigation = new stdClass;
-	    $naviElmts = $this->mysql->query(sprintf("SELECT * FROM `%snavigation_categories` ORDER BY `order` ASC",$this->config['MySQL']['prefix']));
+	    $this->Navigation = new stdClass;
+	    $query = sprintf("SELECT * FROM `%snavigation_categories` ORDER BY `order` ASC",$this->config['MySQL']['prefix']);
+	    $naviElmts = $this->mysql->query($query);
 	    while($naviElmt = $naviElmts->fetch_object())
 	    {
-	        $this->navigation->{$naviElmt->order} = $naviElmt;
+	        $this->Navigation->{$naviElmt->order} = $naviElmt;
 	        if($naviElmt->hasSub == true)
 	        {
-	            $this->navigation->{$naviElmt->order}->subItems = $this->loadNavigationSubItems($naviElmt->id);
+	            $this->Navigation->{$naviElmt->order}->subItems = $this->loadNavigationSubItems($naviElmt->id);
 	        }
 	    }
 	    $naviElmts->free();
@@ -134,11 +134,12 @@ class XFrames extends Smarty {
 	        $subItems = $this->mysql->query(sprintf("SELECT * FROM `%snavigation_subitems` WHERE `catId` = %d ORDER BY `order` ASC",$this->config['MySQL']['prefix'],$cid));
 	        if($subItems->num_rows)
 	        {
-	            while($subItem = $subItems->fetch_object)
+	            while($subItem = $subItems->fetch_object())
 	            {
 	                $subItemsObj->{$subItem->order} = $subItem;
 	            }
 	        }
+	        return $subItemsObj;
 	    }
 	}
 	

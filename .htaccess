@@ -2,5 +2,5 @@ Options +FollowSymLinks
 
 RewriteEngine On
 
-RewriteCond %{REQUEST_URI} /xF/([a-zA-Z0-9]+)/(.*)
+RewriteCond %{REQUEST_URI} /xF/([a-zA-Z0-9]+)/?(.*)
 RewriteRule .* frameLoader?p=%1&q=%2 [L]
