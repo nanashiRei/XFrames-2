@@ -15,6 +15,15 @@ p
 { padding: 0 0 20px 0;
   line-height: 1.7em;}
 
+code {
+	padding: 5px;
+	font-size: 1.2em;
+	font-family: consolas;
+	background: #F5F5EC;
+	color: #47433F;
+	border: 1px solid #E5E5DB;
+}
+
 img
 { border: 0;}
 

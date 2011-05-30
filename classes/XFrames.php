@@ -5,6 +5,7 @@ error_reporting(E_ALL);
 require dirname(__FILE__).'/../include/constants.php';
 require dirname(__FILE__).'/exceptions/ExceptionLoader.php';
 require dirname(__FILE__).'/XTheme.php';
+require dirname(__FILE__).'/User.php';
 require dirname(__FILE__).'/Smarty.class.php';
 
 /** 
@@ -12,13 +13,15 @@ require dirname(__FILE__).'/Smarty.class.php';
  * 
  * 
  */
-class XFrames extends Smarty {
+abstract class XFrames extends Smarty {
 	
 	protected $config;
 	
 	public $mysql;
 	public $Navigation;	
 	public $Theme;
+	public $Environment;
+	public $User;
 	
 	/**
 	 * 
@@ -67,6 +70,11 @@ class XFrames extends Smarty {
 			
 			// Read the navigation
 			$this->loadNavigation();
+			
+			// Set User object
+			$this->User = new User($this);
+			if(isset($_COOKIE[Auth::Cookie]))
+			    $this->User->AuthByCookie($_COOKIE[Auth::Cookie]);
 		}
 		catch(mysqli_sql_exception $e)
 		{
@@ -160,6 +168,17 @@ class XFrames extends Smarty {
 		}
 	}
 	
+	function assignEnvironment()
+	{
+	    for($arg = 0; $arg < func_num_args(); $arg++)
+	    {
+	        if(!isset($_GET[$arg])) continue;
+	        $var = func_get_arg($arg);
+	        $this->Environment[$var] = $_GET[$arg];
+	        $this->assign($var,$this->Environment[$var],true);
+	    }
+	}
+	
 	function __call($name,$args)
 	{
 	    //TODO: Wie mach ich das??   
@@ -176,6 +195,10 @@ class XFrames extends Smarty {
 	        }
 	    }
 	}
+	
+	// Abstract stuff
+	
+	abstract protected function DisplayPage();
 }
 
 ?>

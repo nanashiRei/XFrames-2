@@ -1,7 +1,5 @@
 <?php
 
-//require_once dirname(__FILE__).'/../classes/XFrames.php';
-
 /** 
  * @author nanashiRei
  * 
@@ -13,9 +11,13 @@ class PageExample extends XFrames
 	{
 		parent::__construct();
 		$this->caching = false;
-		
-		$this->display('examplePage.tpl');
-	}	
+	}
+	
+	public function DisplayPage()
+	{
+	    $this->assignEnvironment('var1','othervar','whatever');
+	    $this->display('examplePage.tpl');
+	}
 }
 
 ?>

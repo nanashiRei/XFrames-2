@@ -27,10 +27,8 @@ class User
 	
 	public $username;
 	public $Flags;
-	public $LastError;
-	public $Error;
 	
-	public function __construct($id=null,$xf)
+	public function __construct($xf,$id=null)
 	{
 		$this->Error = false;
 		$this->LastError = "";
@@ -44,18 +42,16 @@ class User
 	public function CreateAccount($username,$password,$repeat)
 	{
 		if(empty($username) || empty($password)) return false;
-		if(!preg_match(Auth::UsernameRegex,$username)):
-			$this->Error = true;
-			$this->LastError = 'Username does not match against the rules';
-			return false;
-		endif;
-		if($password != $repeat):
-			$this->Error = true;
-			$this->LastError = 'Passwords do not match';
-			return false;
-		endif;
+		if(!preg_match(Auth::UsernameRegex,$username))
+		{
+			throw new XFrames_User_Exception('Username does not match the requirements', ERR_USER_BAD_USERNAME);
+		}
+		if($password != $repeat)
+		{
+			throw new XFrames_User_Exception('Passwords do not match', ERR_USER_BAD_PASSWORD);
+		}
 		$query = sprintf("SELECT * FROM `%saccounts` WHERE `username` LIKE '%%%s%%' LIMIT 1",$this->xf->config['MySQL']['prefix'],$this->xf->mysql->real_escape_string($username));
-		$user = $this->xf->mysql->query($query);
+		$user = $this->xf->mysqlQuery($query);
 		if(!$user->num_rows)
 		{
 		    $insUserQuery = sprintf("INSERT INTO `%saccounts` (`username`,`password`) VALUES ('%s','%s')",
@@ -63,21 +59,21 @@ class User
 		        $this->xf->mysql->real_escape_string($username),
 		        $this->xf->mysql->real_escape_string($password)
 		    );
-			$this->xf->mysql->query($insUserQuery);
+			$this->xf->mysqlQuery($insUserQuery);
 		}
 		else
 		{
-			$this->Error = true;
-			$this->LastError = 'Account already exists';
+			throw new XFrames_User_Exception('User already exists', ERR_USER_ALREADY_EXISTS);
 		}
 	}
 	
 	private function _authByID($id)
 	{
 		if(!is_numeric($id)) return false;
-		$this->mysql->query("SELECT * FROM `authme` WHERE `id` = " . $id . " LIMIT 1");
-		if($this->mysql->isNext()):
-			$dbUser = $this->mysql->getNext();
+		$userRes = $this->xf->mysqlQuery("SELECT * FROM `authme` WHERE `id` = " . $id . " LIMIT 1");
+		if($userRes->num_rows)
+		{
+			$dbUser = $userRes->fetch_assoc();
 			$this->isAuthed = true;
 			$this->isFormAuthed = false;
 			$this->username = $dbUser['username'];
@@ -85,7 +81,7 @@ class User
 			$this->key = $dbUser['key'];
 			$this->_flags();
 			return $this->isAuthed;
-		endif;
+		}
 		return false;
 	}
 	
@@ -107,10 +103,15 @@ class User
 	
 	public function AuthByCookie($cookie)
 	{
-		if(!empty($cookie)):
-			$this->mysql->query("SELECT * FROM `authme` WHERE `key` = '" . MySQL::escape($cookie) ."' LIMIT 1");
-			if($this->mysql->isNext()):
-				$dbUser = $this->mysql->getNext();
+		if(!empty($cookie))
+		{
+			$userRes = $this->mysqlQuery(sprinft("SELECT * FROM `%saccounts` WHERE `key` = '%s' LIMIT 1",
+			    $this->xf->config['MySQL']['prefix'],
+			    $this->xf->mysqlReal_escape_string($cookie)
+			));
+			if($userRes->num_rows)
+			{
+				$dbUser = $userRes->fetch_assoc();
 				$this->isAuthed = true;
 				$this->isFormAuthed = false;
 				$this->username = $dbUser['username'];
@@ -118,8 +119,8 @@ class User
 				$this->key = $dbUser['key'];
 				$this->_flags();
 				return $this->isAuthed;
-			endif;
-		endif;
+			}
+		}
 		$this->isAuthed = false;
 		$this->isFormAuthed = false;
 		return $this->isAuthed;
@@ -127,20 +128,28 @@ class User
 	
 	public function SetCookie()
 	{
-		if($this->isFormAuthed && $this->setCookie):
+		if($this->isFormAuthed && $this->setCookie)
+		{
 			$key = hash_hmac(Auth::Algorythm,$this->password,Auth::Pagesecret);
 			setcookie(Auth::Cookie,$key,time() + 14 * 24 * 60 * 60,'/');
-			$this->mysql->update('authme',array('key' => $key),'`id` = ' . $this->dbID);
+			$this->mysqlQuery(sprintf("UPDATE `%saccounts` SET `key` = '%s' WHERE `id` = %d",
+			    $this->xf->config['MySQL']['prefix'],
+			    $this->xf->mysql->real_escape_string($key),
+			    $this->dbID
+			));
 			$this->key = $key;
 			return true;
-		endif;
+		}
 		return false;
 	}
 	
 	public function Logout()
 	{
 		if($this->isAuthed):
-			$this->mysql->update('authme',array('key' => ''),'`id` = ' . $this->dbID);
+			$this->mysqlQuery(sprintf("UPDATE `%saccounts` SET `key` = '' WHERE `id` = %d",
+			    $this->xf->config['MySQL']['prefix'],
+			    $this->dbID
+			));
 			$this->isAuthed = false;
 			$this->isFormAuthed = false;
 			setcookie(Auth::Cookie,FALSE);
@@ -149,35 +158,64 @@ class User
 	
 	public function AuthByForm($username,$password)
 	{
-		$this->mysql->query("SELECT * FROM `authme` WHERE `username` = LOWER('" . MySQL::escape($username) . "') AND `password` = MD5('" . MySQL::escape($password) . "') LIMIT 1");
-		if($this->mysql->isNext()):
+		$userRes = $this->mysqlQuery(sprintf("SELECT * FROM `%saccounts` WHERE `username` = LOWER('%s') AND `password` = MD5('%s') LIMIT 1",
+		    $this->xf->config['MySQL']['prefix'],    
+		    $this->xf->mysqlReal_escape_string($username),
+		    $this->xf->mysqlReal_escape_string($password)
+		));
+		if($userRes->num_rows)
+		{
 			$this->isAuthed = true;
 			$this->isFormAuthed = true;
-			$dbUser = $this->mysql->getNext();
+			$dbUser = $userRes->fetch_assoc();
 			$this->username = $dbUser['username'];
 			$this->password = $password;
 			$this->dbID = $dbUser['id'];
 			$this->_flags();
 			return $this->isAuthed;
-		else:
+		}
+		else
+		{
 			$this->isAuthed = false;
 			$this->isFormAuthed = false;
 			return $this->isAuthed;
-		endif;
+		}
 	}
 	
 	public function SaveChanges()
 	{
-		if($this->isAuthed):
-			foreach($this->Flags as $key => $data):
-				$this->mysql->query("SELECT `id`,`key` FROM `auth_flags` WHERE `id` = " . $this->dbID . " AND `key` = LOWER('" . $key . "') LIMIT 1");
-				if($this->mysql->isNext()):
-					$this->mysql->update('auth_flags',array('value'=>$data->value,'type'=>$data->type,'data'=>$data->data),"`id` = " . $this->dbID . " AND `key` = LOWER('" . $key . "')");
-				else:
-					$this->mysql->insert('auth_flags',array('id'=>$this->dbID,'key'=>strtolower($key),'value'=>$data->value,'type'=>$data->type,'data'=>$data->data));
-				endif;
-			endforeach;
-		endif;
+		if($this->isAuthed)
+		{
+			foreach($this->Flags as $key => $data)
+			{
+				$flagRes = $this->mysql->query(sprintf("SELECT `id`,`key` FROM `%saccounts_flags` WHERE `id` = %d AND `key` = LOWER('%s') LIMIT 1",
+				    $this->xf->config['MySQL']['prefix'],
+				    $key
+				));
+				if($flagRes->num_rows)
+				{
+					$this->mysqlQuery(sprintf("UPDATE `%saccount_flags` SET `value` = '%s', `type` = '%s', `data` = '%s' WHERE `id` = %d AND `key` = LOWER('%s')",
+					    $this->xf->config['MySQL']['prefix'],
+					    $data->value,
+					    $data->type,
+					    $data->data,
+					    $this->dbID,
+					    $key
+					));
+				}
+				else
+				{
+					$this->xf->mysqlQuery(sprintf("INSERT INTO `%saccounts_flags` (`id`,`key`,`value`,`type`,`data`) VALUES (%d,LOWER('%s'),'%s','%s','%s')",
+					    $this->xf->config['MySQL']['prefix'],
+					    $this->dbID,
+					    $key,
+					    $data->value,
+					    $data->type,
+					    $data->data
+					));
+				}
+			}
+		}
 		return false;
 	}
 	
@@ -190,21 +228,24 @@ class User
 	
 	public function SetEnum($flag,$set=0)
 	{
-		if(isset($this->Flags->{$flag})):
+		if(isset($this->Flags->{$flag}))
+		{
 			if(is_numeric($set)):
 				$this->Flags->{$flag}->value = $this->Flags->{$flag}->data[$set];
 			else:
 				if(in_array($set,$this->Flags->{$flag}->data))
 					$this->Flags->{$flag}->value = $set;
 			endif;
-		endif;
+		}
 		return false;
 	}
 	
 	public function SetFlag($flag,$value)
 	{
-		if(isset($this->Flags->{$flag})):
-			switch($this->Flags->{$flag}->type):
+		if(isset($this->Flags->{$flag}))
+		{
+			switch($this->Flags->{$flag}->type)
+			{
 				case 'value':
 					$this->Flags->{$flag}->value = $value;
 					return true;
@@ -220,16 +261,18 @@ class User
 				case 'enum':
 					return $this->SetEnum($flag,$value);
 					break;
-			endswitch;
-		endif;
+			}
+		}
 		return false;
 	}
 	
 	public function AddFlag($flag,$type=Flag::State,$value=true)
 	{
-		if(!isset($this->Flags->{$flag})):
+		if(!isset($this->Flags->{$flag}))
+		{
 			$this->Flags->{$flag} = new stdClass;
-			switch($type):
+			switch($type)
+			{
 				case Flag::Enum:
 					$this->AddEnumFlag($flag,$value);
 					return true;
@@ -249,23 +292,25 @@ class User
 						return false;
 					endif;
 					break;
-			endswitch;
-		endif;	
+			}
+		}	
 		return false;
 	}
 	
 	private function _flags()
 	{
-		if($this->isAuthed):
+		if($this->isAuthed)
+		{
 			$this->Flags = new stdClass;
-			$this->mysql->query("SELECT * FROM `auth_flags` WHERE `id` = " . $this->dbID);
-			while($this->mysql->isNext()):
-				$pair = $this->mysql->getNext();
-				if($pair['type'] == 'enum'):
-					$pair['data'] = explode(',',$pair['data']);
-				endif;
-				$this->Flags->{$pair['key']} = (object)$pair;
-			endwhile;
-		endif;
+			$flagRes = $this->mysqlQuery(sprintf("SELECT * FROM `%accounts_flagss` WHERE `id` = %d",$this->dbID));
+			while($flag = $flagRes->fetch_assoc())
+			{
+				if($flag['type'] == 'enum')
+				{
+					$flag['data'] = explode(',',$flag['data']);
+				}
+				$this->Flags->{$flag['key']} = (object)$flag;
+			}
+		}
 	}
 }

@@ -1,6 +1,7 @@
 <?php
 
 require_once dirname(__FILE__).'/classes/XFrames.php';
+require_once dirname(__FILE__).'/pages/ErrorPage.php';
 
 if(empty($_GET['p']))
 {
@@ -11,8 +12,9 @@ if(empty($_GET['p']))
 
 if(!file_exists(dirname(__FILE__).'/'.$_GET['p'].'.php'))
 {
-	$xf = new XFrames;
-	$xf->displayError('genericError', new Exception('Requested page does not exist', ERR_PAGE_NOT_FOUND));
+	$xf = new ErrorPage();
+	$xf->SetError('genericError', new Exception('Requested page does not exist', ERR_PAGE_NOT_FOUND));
+	$xf->DisplayPage();
 	die();
 }
 

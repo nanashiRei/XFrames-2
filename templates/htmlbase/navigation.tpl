@@ -11,5 +11,14 @@
 			{/if} *}
 			</li>
 		{/foreach}
+		<li>
+			<a href="{$XF->getConfig('global','Path')}/xF/session">
+				{if $XF->User->isAuthed()}
+					Logout
+				{else}
+					Login
+				{/if}
+			</a>
+		</li>
 	</ul>
 </div>
