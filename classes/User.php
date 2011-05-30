@@ -23,19 +23,21 @@ class User
 	private $setCookie;
 	private $password;
 	private $key;
+	private $xf;
 	
 	public $username;
 	public $Flags;
 	public $LastError;
 	public $Error;
 	
-	public function __construct($id=null)
+	public function __construct($id=null,$xf)
 	{
 		$this->Error = false;
 		$this->LastError = "";
 		$this->isAuthed = false;
 		$this->isFormAuthed = false;
 		$this->setCookie = true;
+		$this->xf = $xf;
 		if($id != null) $this->_authByID($id);
 	}
 	
@@ -52,16 +54,22 @@ class User
 			$this->LastError = 'Passwords do not match';
 			return false;
 		endif;
-		$this->mysql->query("SELECT * FROM `authme` WHERE `username` LIKE '" . MySQL::escape($username) . "' LIMIT 1");
-		if(!$this->mysql->IsNext()):
-			$this->mysql->insert('authme',array(
-				'username' => MySQL::escape($username),
-				'password' => MySQL::escape(md5($password))
-			));
-		else:
+		$query = sprintf("SELECT * FROM `%saccounts` WHERE `username` LIKE '%%%s%%' LIMIT 1",$this->xf->config['MySQL']['prefix'],$this->xf->mysql->real_escape_string($username));
+		$user = $this->xf->mysql->query($query);
+		if(!$user->num_rows)
+		{
+		    $insUserQuery = sprintf("INSERT INTO `%saccounts` (`username`,`password`) VALUES ('%s','%s')",
+		        $this->xf->config['MySQL']['prefix'],
+		        $this->xf->mysql->real_escape_string($username),
+		        $this->xf->mysql->real_escape_string($password)
+		    );
+			$this->xf->mysql->query($insUserQuery);
+		}
+		else
+		{
 			$this->Error = true;
 			$this->LastError = 'Account already exists';
-		endif;
+		}
 	}
 	
 	private function _authByID($id)

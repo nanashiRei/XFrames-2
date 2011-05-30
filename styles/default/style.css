@@ -121,7 +121,10 @@ ol li
   background: transparent;} 
 
 ul#menu
-{ float: left;}
+{
+	float: left;
+	height: 50px;
+}
 
 ul#menu li
 { float: left;

@@ -19,20 +19,10 @@ if(!file_exists(dirname(__FILE__).'/'.$_GET['p'].'.php'))
 if(!empty($_GET['q']))
 {
 	$kvpairs = explode('/',$_GET['q']);
-	foreach($kvpairs as $kvpair)
+	foreach($kvpairs as $kv)
 	{
-		if(trim($kvpair) == '') continue;
-		$kv = explode('-',$kvpair,2);
-		if(count($kv) > 1)
-		{
-			$kv[1] = (strtolower($kv[1]) == "no" ? false : $kv[1]);
-			$kv[1] = (strtolower($kv[1]) == "yes" ? true : $kv[1]);
-			$_GET[$kv[0]] = $kv[1];
-		}
-		else
-		{
-			$_GET[$kv[0]] = true;
-		}
+	    if(empty($kv)) continue;
+		$_GET[] = $kv;
 	}	
 }
 

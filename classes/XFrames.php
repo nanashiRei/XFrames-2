@@ -4,8 +4,6 @@ error_reporting(E_ALL);
 
 require dirname(__FILE__).'/../include/constants.php';
 require dirname(__FILE__).'/exceptions/ExceptionLoader.php';
-//require dirname(__FILE__).'/MySQLConnection.php';
-//require dirname(__FILE__).'/XMySQLi.php';
 require dirname(__FILE__).'/XTheme.php';
 require dirname(__FILE__).'/Smarty.class.php';
 
@@ -16,9 +14,9 @@ require dirname(__FILE__).'/Smarty.class.php';
  */
 class XFrames extends Smarty {
 	
-	protected $mysql;
 	protected $config;
 	
+	public $mysql;
 	public $Navigation;	
 	public $Theme;
 	
@@ -114,7 +112,7 @@ class XFrames extends Smarty {
 	{
 	    $this->Navigation = new stdClass;
 	    $query = sprintf("SELECT * FROM `%snavigation_categories` ORDER BY `order` ASC",$this->config['MySQL']['prefix']);
-	    $naviElmts = $this->mysql->query($query);
+	    $naviElmts = $this->mysqlQuery($query);
 	    while($naviElmt = $naviElmts->fetch_object())
 	    {
 	        $this->Navigation->{$naviElmt->order} = $naviElmt;
@@ -131,7 +129,7 @@ class XFrames extends Smarty {
 	    if(is_numeric($cid))
 	    {
 	        $subItemsObj = new stdClass;
-	        $subItems = $this->mysql->query(sprintf("SELECT * FROM `%snavigation_subitems` WHERE `catId` = %d ORDER BY `order` ASC",$this->config['MySQL']['prefix'],$cid));
+	        $subItems = $this->mysqlQuery(sprintf("SELECT * FROM `%snavigation_subitems` WHERE `catId` = %d ORDER BY `order` ASC",$this->config['MySQL']['prefix'],$cid));
 	        if($subItems->num_rows)
 	        {
 	            while($subItem = $subItems->fetch_object())
@@ -160,6 +158,23 @@ class XFrames extends Smarty {
 		{
 			throw new XFrames_Config_Exception('Undefined section "' . $section . '"', ERR_CONFIG_UNDEFINED_SECTION);
 		}
+	}
+	
+	function __call($name,$args)
+	{
+	    //TODO: Wie mach ich das??   
+	    if(preg_match("/(mysql|user)([a-zA-Z]+)/",$name,$fnmatch))
+	    {
+	        switch($fnmatch[1])
+	        {
+	            case 'mysql':
+	                if(method_exists($this->mysql,strtolower($fnmatch[2])))
+	                {
+	                    return call_user_func_array(array($this->mysql,strtolower($fnmatch[2])), $args);
+	                }
+	                break;   
+	        }
+	    }
 	}
 }
 
